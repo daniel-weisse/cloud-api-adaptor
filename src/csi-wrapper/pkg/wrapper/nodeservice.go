@@ -13,7 +13,6 @@ import (
 
 	podvminfo "github.com/confidential-containers/cloud-api-adaptor/src/cloud-api-adaptor/proto/podvminfo"
 	"github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/apis/peerpodvolume/v1alpha1"
-	peerpodvolumeV1alpha1 "github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/apis/peerpodvolume/v1alpha1"
 	peerpodvolume "github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/generated/peerpodvolume/clientset/versioned"
 	"github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/utils"
 	"github.com/containerd/ttrpc"
@@ -67,7 +66,7 @@ func NewNodeService(targetEndpoint, namespace string, peerpodvolumeClientSet *pe
 	}
 }
 
-func (s *NodeService) redirect(ctx context.Context, req interface{}, fn func(context.Context, csi.NodeClient)) error {
+func (s *NodeService) redirect(ctx context.Context, _ interface{}, fn func(context.Context, csi.NodeClient)) error {
 	conn, err := grpc.Dial(s.TargetEndpoint, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
@@ -336,7 +335,7 @@ func (s *NodeService) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandV
 	return
 }
 
-func (s *NodeService) SyncHandler(peerPodVolume *peerpodvolumeV1alpha1.PeerpodVolume) {
+func (s *NodeService) SyncHandler(peerPodVolume *v1alpha1.PeerpodVolume) {
 	if peerPodVolume.Spec.NodeName != os.Getenv("POD_NODE_NAME") {
 		// Only handle the PeerpodVolume CRD which is assigned to the same compute node
 		glog.Infof("Only handle the PeerpodVolume CRD which is assigned to %v", os.Getenv("POD_NODE_NAME"))
@@ -344,7 +343,7 @@ func (s *NodeService) SyncHandler(peerPodVolume *peerpodvolumeV1alpha1.PeerpodVo
 	}
 	glog.Infof("syncHandler from nodeService: %v ", peerPodVolume)
 	switch peerPodVolume.Status.State {
-	case peerpodvolumeV1alpha1.PeerPodVSIRunning:
+	case v1alpha1.PeerPodVSIRunning:
 		// The podName and podNamespace MUST be there when it's PeerPodVSIRunning status
 		glog.Infof("Getting vmID for podName:%v, podNamespace:%v", peerPodVolume.Spec.PodName, peerPodVolume.Spec.PodNamespace)
 		req := &podvminfo.GetInfoRequest{
@@ -384,6 +383,6 @@ func (s *NodeService) SyncHandler(peerPodVolume *peerpodvolumeV1alpha1.PeerpodVo
 	}
 }
 
-func (s *NodeService) DeleteFunction(peerPodVolume *peerpodvolumeV1alpha1.PeerpodVolume) {
+func (s *NodeService) DeleteFunction(peerPodVolume *v1alpha1.PeerpodVolume) {
 	glog.Infof("deleteFunction from nodeService: %v ", peerPodVolume)
 }

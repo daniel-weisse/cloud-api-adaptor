@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/apis/peerpodvolume/v1alpha1"
-	peerpodvolumeV1alpha1 "github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/apis/peerpodvolume/v1alpha1"
 	peerpodvolume "github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/generated/peerpodvolume/clientset/versioned"
 	"github.com/confidential-containers/cloud-api-adaptor/src/csi-wrapper/pkg/utils"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -56,7 +55,7 @@ func NewControllerService(targetEndpoint, namespace string, peerpodvolumeClientS
 	}
 }
 
-func (s *ControllerService) redirect(ctx context.Context, req interface{}, fn func(context.Context, csi.ControllerClient)) error {
+func (s *ControllerService) redirect(ctx context.Context, _ interface{}, fn func(context.Context, csi.ControllerClient)) error {
 	conn, err := grpc.Dial(s.TargetEndpoint, grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
@@ -353,9 +352,9 @@ func (s *ControllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 	return
 }
 
-func (s *ControllerService) SyncHandler(peerPodVolume *peerpodvolumeV1alpha1.PeerpodVolume) {
+func (s *ControllerService) SyncHandler(peerPodVolume *v1alpha1.PeerpodVolume) {
 	glog.Infof("syncHandler from ControllerService: %v ", peerPodVolume)
-	if peerPodVolume.Status.State == peerpodvolumeV1alpha1.PeerPodVSIIDReady && peerPodVolume.Spec.DevicePath == "" {
+	if peerPodVolume.Status.State == v1alpha1.PeerPodVSIIDReady && peerPodVolume.Spec.DevicePath == "" {
 		// After peerpod vsi id is ready in crd object, we can reproduce the ControllerPublishVolumeRequest
 		vsiID := peerPodVolume.Spec.VMID
 		// Replace the nodeID with peerpod vsi instance id in ControllerPublishVolumeRequest and pass
@@ -403,6 +402,6 @@ func (s *ControllerService) SyncHandler(peerPodVolume *peerpodvolumeV1alpha1.Pee
 	}
 }
 
-func (s *ControllerService) DeleteFunction(peerPodVolume *peerpodvolumeV1alpha1.PeerpodVolume) {
+func (s *ControllerService) DeleteFunction(peerPodVolume *v1alpha1.PeerpodVolume) {
 	glog.Infof("deleteFunction from controllerService: %v ", peerPodVolume)
 }
