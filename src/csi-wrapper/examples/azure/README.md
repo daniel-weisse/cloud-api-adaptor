@@ -36,13 +36,13 @@ Follow this if you have made changes to the CSI wrapper code and want to deploy 
     popd
     ```
 
-3. Export custom registry
+2. Export custom registry
 
     ```bash
     export REGISTRY="my-registry" # e.g. "quay.io/my-registry"
     ```
 
-4. Tag and push images
+3. Tag and push images
 
     ```bash
     docker tag csi-controller-wrapper:local ${REGISTRY}/csi-controller-wrapper:latest
@@ -54,11 +54,11 @@ Follow this if you have made changes to the CSI wrapper code and want to deploy 
     docker push ${REGISTRY}/csi-podvm-wrapper:latest
     ```
 
-5. Change image in CSI wrapper k8s resources
+4. Change image in CSI wrapper k8s resources
 
     ```bash
-    sed -i "s#quay.io/confidential-containers#${REGISTRY}#g" volumes/csi-wrapper/examples/azure/disk/*.yaml
-    sed -i "s#quay.io/confidential-containers#${REGISTRY}#g" volumes/csi-wrapper/examples/azure/file/*.yaml
+    sed -i "s#quay.io/confidential-containers#${REGISTRY}#g" src/csi-wrapper/examples/azure/disk/*.yaml
+    sed -i "s#quay.io/confidential-containers#${REGISTRY}#g" src/csi-wrapper/examples/azure/file/*.yaml
     ```
 
 ## Peer Pod example using CSI Wrapper with azurefile-csi-driver
@@ -155,16 +155,58 @@ Note: All the steps can be performed anywhere with cluster access
 
 ## Peer Pod example using CSI Wrapper with azuredisk-csi-driver
 
-Prerequisite: Assign the `Contributor` role to the AKS agent pool application so it can create storage accounts:
+Prerequisite: The service principal of the cluster requires the `Contributor` role for the CAA resource group so it can manage disks.
+Additionally, the CSI driver needs to be configured to create disks in the CAA instead of the AKS resource group.
 
-```bash
-OBJECT_ID="$(az ad sp list --display-name "${CLUSTER_NAME}-agentpool" --query '[].id' --output tsv)"
-az role assignment create \
-  --role "Contributor" \
-  --assignee-object-id ${OBJECT_ID} \
-  --assignee-principal-type ServicePrincipal \
-  --scope "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}-aks"
-```
+1. Start by assigning the `Contributor` role to the AKS agent pool
+
+    ```bash
+    OBJECT_ID="$(az ad sp list --display-name "${CLUSTER_NAME}-agentpool" --query '[].id' --output tsv)"
+    az role assignment create \
+      --role "Contributor" \
+      --assignee-object-id ${OBJECT_ID} \
+      --assignee-principal-type ServicePrincipal \
+      --scope "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}"
+    ```
+
+2. Get the user assigned identity ID of the identity assigned to the cluster
+
+    ```bash
+    USER_ASSIGNED_CLIENT_ID=$(az aks show \
+        --resource-group $AZURE_RESOURCE_GROUP \
+        --name $CLUSTER_NAME \
+        --query identityProfile.kubeletidentity.clientId \
+        -o tsv)
+    ```
+
+3. Update `cloud-config.yaml` with the cloud config for the user assigned identity:
+
+    ```bash
+    cloud_config=$(cat <<EOF
+    {
+        "cloud": "AzurePublicCloud",
+        "tenantId": "$(az account show --query tenantId -o tsv)",
+        "subscriptionId": "${AZURE_SUBSCRIPTION_ID}",
+        "resourceGroup": "${AZURE_RESOURCE_GROUP}",
+        "location": "${AZURE_REGION}",
+        "vmType": "vmss",
+        "useManagedIdentityExtension": true,
+        "userAssignedIdentityID": "${USER_ASSIGNED_CLIENT_ID}",
+        "useInstanceMetadata": true,
+        "aadClientID": "msi",
+        "aadClientSecret": "msi"
+    }
+    EOF
+    )
+    cloud_config_base64=$(echo "${cloud_config}" | base64 -w0)
+    sed -i "s|@@CLOUD_CONFIG_BASE64@@|$cloud_config_base64|g" src/csi-wrapper/examples/azure/disk/cloud-config.yaml
+    ```
+
+4. Create the cloud config secret:
+
+    ```bash
+    kubectl apply -f src/csi-wrapper/examples/azure/disk/cloud-config.yaml
+    ```
 
 ### Deploy azuredisk-csi-driver on the cluster
 
