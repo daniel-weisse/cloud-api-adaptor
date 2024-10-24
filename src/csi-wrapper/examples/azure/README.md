@@ -213,7 +213,7 @@ Additionally, the CSI driver needs to be configured to create disks in the CAA i
 1. Clone the azuredisk-csi-driver source:
 
     ```bash
-    git clone --depth 1 --branch v1.30.3 https://github.com/kubernetes-sigs/azuredisk-csi-driver
+    git clone --depth 1 --branch v1.31.0 https://github.com/kubernetes-sigs/azuredisk-csi-driver
     ```
 
 2. Run the script:

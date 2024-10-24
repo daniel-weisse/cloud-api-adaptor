@@ -20,7 +20,7 @@ spec:
         - |
           mount -t devtmpfs none /dev && \
           exec /azurediskplugin --v=4 --disable-update-cache
-      image: mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.3
+      image: mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.0
       imagePullPolicy: Always
       securityContext:
         privileged: true
